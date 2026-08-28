@@ -1,0 +1,8 @@
+﻿date,company,ticker,currency,price,market_cap,pe,pb,ev_sales,ytd_return,data_status,source_url
+2026-08-26,Aumovio,AMV0,EUR,35.5,3580000000,,,,,PUBLIC_DELAYED,https://stockanalysis.com/quote/etr/AMV0/market-cap/
+2026-08-28,Luxshare,002475.SZ,CNY,56.6,463190000000,23.88,,,,PUBLIC_DELAYED,https://stockanalysis.com/quote/she/002475/
+2026-08-27,HASCO,600741.SH,CNY,15.32,48300000000,6.73,,,,PUBLIC_DELAYED,https://stockanalysis.com/quote/sha/600741/
+2026-08-28,Tuopu,601689.SH,CNY,47.09,82430000000,32.72,,,,PUBLIC_DELAYED,https://stockanalysis.com/quote/sha/601689/
+2026-08-21,Baolong,603197.SH,CNY,30.68,6570000000,34.73,,,,PUBLIC_DELAYED,https://stockanalysis.com/quote/sha/603197/
+2026-08-28,BTL,603596.SH,CNY,28.0,25134000000,19.22,2.11,,,PUBLIC_DELAYED,https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_AllNewsStock/symbol/sh603596.phtml
+2026-08-28,NASN,02261.HK,HKD,,8818000000,,,,,PUBLIC_SNAPSHOT,https://www.qcc.com/cfinance/122faeed09910f2253e16a05bb4b1dc5.html
