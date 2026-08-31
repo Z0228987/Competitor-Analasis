@@ -1,0 +1,45 @@
+name: Update Market Data
+
+on:
+  schedule:
+    # 北京时间每天早上7点
+    - cron: '0 23 * * *'
+
+  workflow_dispatch:
+
+jobs:
+  update-market-data:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Packages
+        run: |
+          pip install pandas yfinance
+
+      - name: Update Market Data
+        run: |
+          python scripts/update_market_data.py
+
+      - name: Commit Changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add data/*.csv
+
+          git diff --cached --quiet || \
+          git commit -m "Auto update market data"
+
+      - name: Push
+        run: git push
