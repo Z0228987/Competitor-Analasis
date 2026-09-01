@@ -11,7 +11,7 @@ stocks = {
     "Tuopu": "601689.SS",
     "Baolong": "603197.SS",
     "BTL": "603596.SS",
-    "AUMOVIO":"AMV0"
+    "AUMOVIO":"AMV0.F"
 }
 
 records = []
