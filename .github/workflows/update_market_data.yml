@@ -41,5 +41,7 @@ jobs:
           git diff --cached --quiet || \
           git commit -m "Auto update market data"
 
-      - name: Push
-        run: git push
+      - name: Sync and Push
+        run: |
+          git pull --rebase origin main
+          git push origin HEAD:main
