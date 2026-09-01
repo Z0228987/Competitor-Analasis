@@ -36,14 +36,26 @@ for company, ticker in stocks.items():
 
         if not hist.empty and "Close" in hist.columns:
 
-            latest_price = float(hist["Close"].iloc[-1])
+            close_prices = (
+                hist["Close"]
+                .dropna()
+            )
 
-            first_price = float(hist["Close"].iloc[0])
-
-            if first_price > 0:
-                ytd_return = (
-                    latest_price / first_price - 1
+            if len(close_prices) > 0:
+        
+                latest_price = float(
+                    close_prices.iloc[-1]
                 )
+        
+                first_price = float(
+                    close_prices.iloc[0]
+                )
+        
+                if first_price > 0:
+        
+                    ytd_return = (
+                        latest_price / first_price - 1
+                    )
 
         records.append({
 
