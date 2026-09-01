@@ -1,46 +1,72 @@
 name: Update Market Data
 
 on:
-  schedule:
-    # 北京时间每天早上7点
-    - cron: '0 23 * * *'
-
   workflow_dispatch:
+  schedule:
+    # 22:30 UTC = 06:30 Asia/Shanghai on the next day.
+    # This runs after both mainland China and Frankfurt sessions have closed.
+    - cron: "30 22 * * 1-5"
+
+concurrency:
+  group: market-data-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   update-market-data:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout latest main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: pip
 
-      - name: Install Packages
+      - name: Install dependencies
         run: |
-          pip install pandas yfinance
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Update Market Data
+      - name: Update market data
+        run: python scripts/update_market_data.py
+
+      - name: Commit and push generated CSV files
+        shell: bash
         run: |
-          python scripts/update_market_data.py
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit Changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git add data/market_data_verified.csv data/market_history.csv
 
-          git add data/*.csv
+          if git diff --cached --quiet; then
+            echo "No market-data changes to commit."
+            exit 0
+          fi
 
-          git diff --cached --quiet || \
-          git commit -m "Auto update market data"
+          git commit -m "chore: update market data"
 
-      - name: Push
-        run: |
-          git push --force-with-lease origin HEAD:main
+          # Retry if main moved while this run was fetching data.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+
+            echo "Push attempt ${attempt} failed; replaying generated commit on latest main."
+            git fetch origin main
+            git rebase -X theirs origin/main
+            sleep $((attempt * 2))
+          done
+
+          echo "Unable to push market data after 3 attempts."
+          exit 1
