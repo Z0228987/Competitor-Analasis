@@ -19,8 +19,7 @@ records = []
 for company, ticker in stocks.items():
 
     print(f"Processing {company} ({ticker})")
-    print(company)
-    print(hist.tail())
+   
 
     try:
 
