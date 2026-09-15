@@ -26,7 +26,7 @@ STOCKS = {
     "Baolong": "603197.SS",
     "BTL": "603596.SS",
     "AUMOVIO": "AMV0.F",
-    "NASN": "2261.HK", # Yahoo港股推荐不带前置0，优先用2261.HK
+    "NASN": "2261.HK",  # Yahoo 港股不带前导 0
 }
 LATEST_COLUMNS = [
     "date",
@@ -57,8 +57,19 @@ def clean_number(value):
         return None
     return number if math.isfinite(number) else None
 
+
+def safe_info(ticker_obj, company):
+    """Retrieve Yahoo company info without stopping the full update.
+    Returns a dict (possibly empty) instead of raising."""
+    try:
+        return ticker_obj.info or {}
+    except Exception as exc:
+        print(f"  warning: {company} info unavailable: {exc}")
+        return {}
+
+
 def fetch_ticker_history_with_retry(ticker_obj, period="1y", max_retry=3):
-    """带重试拉取K线，最多3次，指数退避"""
+    """带重试拉取 K 线，最多 3 次，指数退避"""
     for attempt in range(max_retry):
         try:
             frame = ticker_obj.history(
@@ -67,29 +78,32 @@ def fetch_ticker_history_with_retry(ticker_obj, period="1y", max_retry=3):
                 actions=False,
                 repair=False,
                 timeout=30,
-                period=period
+                period=period,
             )
             if not (frame is None or frame.empty or "Close" not in frame.columns):
                 closes = pd.to_numeric(frame["Close"], errors="coerce")
-                closes = closes.replace([float("inf"), float("-inf")], pd.NA).dropna()
+                closes = closes.replace(
+                    [float("inf"), float("-inf")], pd.NA
+                ).dropna()
                 return closes
         except Exception as exc:
-            wait = (2 ** attempt) + random.uniform(0.5,1.2)
-            print(f"  Retry {attempt+1}/{max_retry}, wait {wait:.1f}s, error: {exc}")
+            wait = (2 ** attempt) + random.uniform(0.5, 1.2)
+            print(f"  Retry {attempt + 1}/{max_retry}, wait {wait:.1f}s, error: {exc}")
             time.sleep(wait)
     print("  Max retry reached, history fetch failed")
     return pd.Series(dtype="float64")
 
+
 def calculate_ytd_return_from_series(full_closes, latest_price, company):
-    """从已经下载好的1年K线切片计算YTD，不再重复请求"""
+    """从已经下载好的 1 年 K 线切片计算 YTD，不再重复请求"""
     if latest_price is None or full_closes.empty:
         return None
     start_year = RUN_TIME.year
-    # 构建当年1月1日，并转为K线时区
+    # 构建当年 1 月 1 日，并转为 K 线时区
     ytd_start_naive = pd.Timestamp(f"{start_year}-01-01")
     ytd_start = ytd_start_naive.tz_localize(full_closes.index.tz)
 
-    # NASN新股保护：YTD起始不能早于上市日
+    # NASN 新股保护：YTD 起始不能早于上市日
     if company == "NASN":
         list_dt_naive = pd.Timestamp(NASN_LIST_DATE)
         list_dt = list_dt_naive.tz_localize(full_closes.index.tz)
@@ -103,8 +117,9 @@ def calculate_ytd_return_from_series(full_closes, latest_price, company):
         return None
     return latest_price / first_price - 1
 
+
 def build_history_rows_from_series(company, ticker, full_closes, currency):
-    """从已下载的1年K线，切片最近1个月数据，不再重复请求"""
+    """从已下载的 1 年 K 线，切片最近 1 个月数据，不再重复请求"""
     if full_closes.empty:
         return []
     run_tz = pd.Timestamp(RUN_TIME).tz_convert(full_closes.index.tz)
@@ -126,6 +141,7 @@ def build_history_rows_from_series(company, ticker, full_closes, currency):
         )
     return rows
 
+
 def normalize_history(frame):
     """Normalize market-history structure before merging."""
     if frame is None or frame.empty:
@@ -139,20 +155,13 @@ def normalize_history(frame):
     normalized["company"] = normalized["company"].astype(str)
     normalized["ticker"] = normalized["ticker"].astype(str)
     normalized["currency"] = normalized["currency"].astype(str)
-    normalized["price"] = pd.to_numeric(
-        normalized["price"],
-        errors="coerce",
-    )
-    normalized = normalized.dropna(
-        subset=["date", "company", "price"]
-    )
+    normalized["price"] = pd.to_numeric(normalized["price"], errors="coerce")
+    normalized = normalized.dropna(subset=["date", "company", "price"])
     normalized = normalized[
-        normalized["date"].str.match(
-            r"^\d{4}-\d{2}-\d{2}$",
-            na=False,
-        )
+        normalized["date"].str.match(r"^\d{4}-\d{2}-\d{2}$", na=False)
     ]
     return normalized
+
 
 def read_existing_history():
     """Read existing history without failing the entire update."""
@@ -172,13 +181,7 @@ def read_existing_history():
     )
     return existing
 
-def safe_get_fastinfo(fast_info_obj, attr_name, default=None):
-    """安全读取fast_info属性，捕获AttributeError"""
-    try:
-        val = getattr(fast_info_obj, attr_name)
-        return val
-    except (AttributeError, KeyError):
-        return default
+
 # ============================================================
 # Main update
 # ============================================================
@@ -186,45 +189,40 @@ def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     latest_records = []
     new_history_records = []
+
     for company, ticker in STOCKS.items():
         print("=" * 60)
         print(f"Processing {company} ({ticker})")
         try:
             ticker_obj = yf.Ticker(ticker)
-            # 优先fast_info，安全读取属性
-            fast_info = {}
-            try:
-                fast_info = ticker_obj.fast_info
-            except Exception as exc:
-                print(f"  warning: fast_info unavailable {exc}")
-                fast_info = None
 
-            # 货币兜底：NASN固定HKD
-            currency = None
-            if company == "NASN":
+            # 用 .info 拿 PE / PB / marketCap / currency（fast_info 没有 PE/PB）
+            info = safe_info(ticker_obj, company)
+
+            # 货币兜底：NASN 固定 HKD
+            currency = info.get("currency") or info.get("financialCurrency")
+            if company == "NASN" and not currency:
                 currency = "HKD"
-            if fast_info is not None and currency is None:
-                currency = safe_get_fastinfo(fast_info, "currency")
 
-            market_cap = None
-            pe = None
-            pb = None
-            if fast_info is not None:
-                market_cap = clean_number(safe_get_fastinfo(fast_info, "market_cap"))
-                pe = clean_number(safe_get_fastinfo(fast_info, "trailingPE"))
-                if pe is None:
-                    pe = clean_number(safe_get_fastinfo(fast_info, "forwardPE"))
-                pb = clean_number(safe_get_fastinfo(fast_info, "priceToBook"))
+            market_cap = clean_number(info.get("marketCap"))
+            pe = clean_number(info.get("trailingPE"))
+            if pe is None:
+                pe = clean_number(info.get("forwardPE"))
+            pb = clean_number(info.get("priceToBook"))
 
-            # 只拉一次1年K线，后面YTD和历史全部切片复用
-            one_year_closes = fetch_ticker_history_with_retry(ticker_obj, period="1y")
+            # 只拉一次 1 年 K 线，后面 YTD 和历史全部切片复用
+            one_year_closes = fetch_ticker_history_with_retry(
+                ticker_obj, period="1y"
+            )
 
             latest_price = (
                 clean_number(one_year_closes.iloc[-1])
                 if not one_year_closes.empty
                 else None
             )
-            ytd_return = calculate_ytd_return_from_series(one_year_closes, latest_price, company)
+            ytd_return = calculate_ytd_return_from_series(
+                one_year_closes, latest_price, company
+            )
 
             company_history = build_history_rows_from_series(
                 company=company,
@@ -232,6 +230,7 @@ def main():
                 full_closes=one_year_closes,
                 currency=currency,
             )
+
             latest_records.append(
                 {
                     "date": TODAY,
@@ -247,21 +246,11 @@ def main():
                         if market_cap is not None
                         else None
                     ),
-                    "pe": (
-                        round(pe, 6)
-                        if pe is not None
-                        else None
-                    ),
-                    "pb": (
-                        round(pb, 6)
-                        if pb is not None
-                        else None
-                    ),
+                    "pe": (round(pe, 6) if pe is not None else None),
+                    "pb": (round(pb, 6) if pb is not None else None),
                     "currency": currency,
                     "ytd_return": (
-                        round(ytd_return, 10)
-                        if ytd_return is not None
-                        else None
+                        round(ytd_return, 10) if ytd_return is not None else None
                     ),
                 }
             )
@@ -277,87 +266,72 @@ def main():
                 f"history_rows={len(company_history)}"
             )
         except Exception as exc:
-            print(f"  WARNING: Failed to process {company}({ticker}), skip this stock: {exc}")
-            # 失败也写入一行记录，全部字段为空
-            latest_records.append({
-                "date": TODAY,
-                "company": company,
-                "ticker": ticker,
-                "price": None,
-                "market_cap": None,
-                "pe": None,
-                "pb": None,
-                "currency": "HKD" if company == "NASN" else None,
-                "ytd_return": None,
-            })
+            print(
+                f"  WARNING: Failed to process {company}({ticker}), "
+                f"skip this stock: {exc}"
+            )
+            latest_records.append(
+                {
+                    "date": TODAY,
+                    "company": company,
+                    "ticker": ticker,
+                    "price": None,
+                    "market_cap": None,
+                    "pe": None,
+                    "pb": None,
+                    "currency": "HKD" if company == "NASN" else None,
+                    "ytd_return": None,
+                }
+            )
 
-        # 随机sleep，防爬虫识别
-        time.sleep(random.uniform(1.2,2.5))
+        # 随机 sleep，防爬虫识别
+        time.sleep(random.uniform(1.2, 2.5))
+
     # --------------------------------------------------------
     # Write latest snapshot
     # --------------------------------------------------------
-    latest_df = pd.DataFrame(
-        latest_records,
-        columns=LATEST_COLUMNS,
+    latest_df = pd.DataFrame(latest_records, columns=LATEST_COLUMNS)
+    valid_latest_prices = (
+        pd.to_numeric(latest_df["price"], errors="coerce").notna().sum()
     )
-    valid_latest_prices = pd.to_numeric(
-        latest_df["price"],
-        errors="coerce",
-    ).notna().sum()
     if valid_latest_prices == 0:
         raise RuntimeError(
             "Yahoo returned no valid latest prices. "
             "Existing CSV files were not overwritten."
         )
-    latest_df.to_csv(
-        LATEST_FILE,
-        index=False,
-    )
+    latest_df.to_csv(LATEST_FILE, index=False)
+
     # --------------------------------------------------------
     # Merge and write cumulative history
     # --------------------------------------------------------
     new_history_df = pd.DataFrame(
-        new_history_records,
-        columns=HISTORY_COLUMNS,
+        new_history_records, columns=HISTORY_COLUMNS
     )
     new_history_df = normalize_history(new_history_df)
+
     existing_history_df = read_existing_history()
-    history_df = pd.concat(
-        [
-            existing_history_df,
-            new_history_df,
-        ],
-        ignore_index=True,
-    )
-    # New downloaded values take priority over existing values
-    # for the same company and date.
+    history_df = pd.concat([existing_history_df, new_history_df], ignore_index=True)
+    # 新下载的值覆盖同公司同日期的旧值
     history_df = history_df.drop_duplicates(
-        subset=["date", "company"],
-        keep="last",
+        subset=["date", "company"], keep="last"
     )
     history_df = history_df.sort_values(
-        by=["date", "company"],
-        kind="stable",
+        by=["date", "company"], kind="stable"
     ).reset_index(drop=True)
-    history_df.to_csv(
-        HISTORY_FILE,
-        index=False,
-    )
+    history_df.to_csv(HISTORY_FILE, index=False)
+
     print("=" * 60)
     print(f"Market data updated at {RUN_TIME.isoformat()}")
     print(
-        f"{LATEST_FILE}: "
-        f"{len(latest_df)} rows, "
+        f"{LATEST_FILE}: {len(latest_df)} rows, "
         f"{valid_latest_prices} valid latest prices"
     )
     print(
-        f"New downloaded history: "
-        f"{len(new_history_df)} rows, "
+        f"New downloaded history: {len(new_history_df)} rows, "
         f"{new_history_df['date'].nunique()} trading dates"
     )
     print(
-        f"{HISTORY_FILE}: "
-        f"{len(history_df)} cumulative rows, "
+        f"{HISTORY_FILE}: {len(history_df)} cumulative rows, "
         f"{history_df['date'].nunique()} trading dates, "
         f"{history_df['company'].nunique()} companies"
     )
@@ -371,5 +345,7 @@ def main():
         print(company_ranges.to_string())
     print(f"History columns: {', '.join(HISTORY_COLUMNS)}")
 
+
 if __name__ == "__main__":
     main()
+#（注：内容由AI生成）
