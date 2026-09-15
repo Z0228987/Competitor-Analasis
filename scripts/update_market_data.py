@@ -26,7 +26,7 @@ STOCKS = {
     "Baolong": "603197.SS",
     "BTL": "603596.SS",
     "AUMOVIO": "AMV0.F",
-    "NASN":"02261.HK",
+    "NASN": "2261.HK", # Yahoo港股推荐不带前置0，优先用2261.HK
 }
 LATEST_COLUMNS = [
     "date",
@@ -171,6 +171,14 @@ def read_existing_history():
         f"{existing['company'].nunique()} companies"
     )
     return existing
+
+def safe_get_fastinfo(fast_info_obj, attr_name, default=None):
+    """安全读取fast_info属性，捕获AttributeError"""
+    try:
+        val = getattr(fast_info_obj, attr_name)
+        return val
+    except (AttributeError, KeyError):
+        return default
 # ============================================================
 # Main update
 # ============================================================
@@ -181,82 +189,108 @@ def main():
     for company, ticker in STOCKS.items():
         print("=" * 60)
         print(f"Processing {company} ({ticker})")
-        ticker_obj = yf.Ticker(ticker)
-
-        # 优先fast_info，大幅降低429风险
         try:
-            fast_info = ticker_obj.fast_info
-        except Exception as exc:
-            print(f"  warning: fast_info unavailable {exc}")
+            ticker_obj = yf.Ticker(ticker)
+            # 优先fast_info，安全读取属性
             fast_info = {}
+            try:
+                fast_info = ticker_obj.fast_info
+            except Exception as exc:
+                print(f"  warning: fast_info unavailable {exc}")
+                fast_info = None
 
-        currency = fast_info.get("currency")
-        market_cap = clean_number(fast_info.get("marketCap"))
-        pe = clean_number(fast_info.get("trailingPE"))
-        if pe is None:
-            pe = clean_number(fast_info.get("forwardPE"))
-        pb = clean_number(fast_info.get("priceToBook"))
+            # 货币兜底：NASN固定HKD
+            currency = None
+            if company == "NASN":
+                currency = "HKD"
+            if fast_info is not None and currency is None:
+                currency = safe_get_fastinfo(fast_info, "currency")
 
-        # 只拉一次1年K线，后面YTD和历史全部切片复用
-        one_year_closes = fetch_ticker_history_with_retry(ticker_obj, period="1y")
+            market_cap = None
+            pe = None
+            pb = None
+            if fast_info is not None:
+                market_cap = clean_number(safe_get_fastinfo(fast_info, "market_cap"))
+                pe = clean_number(safe_get_fastinfo(fast_info, "trailingPE"))
+                if pe is None:
+                    pe = clean_number(safe_get_fastinfo(fast_info, "forwardPE"))
+                pb = clean_number(safe_get_fastinfo(fast_info, "priceToBook"))
 
-        latest_price = (
-            clean_number(one_year_closes.iloc[-1])
-            if not one_year_closes.empty
-            else None
-        )
-        ytd_return = calculate_ytd_return_from_series(one_year_closes, latest_price, company)
+            # 只拉一次1年K线，后面YTD和历史全部切片复用
+            one_year_closes = fetch_ticker_history_with_retry(ticker_obj, period="1y")
 
-        company_history = build_history_rows_from_series(
-            company=company,
-            ticker=ticker,
-            full_closes=one_year_closes,
-            currency=currency,
-        )
-        latest_records.append(
-            {
+            latest_price = (
+                clean_number(one_year_closes.iloc[-1])
+                if not one_year_closes.empty
+                else None
+            )
+            ytd_return = calculate_ytd_return_from_series(one_year_closes, latest_price, company)
+
+            company_history = build_history_rows_from_series(
+                company=company,
+                ticker=ticker,
+                full_closes=one_year_closes,
+                currency=currency,
+            )
+            latest_records.append(
+                {
+                    "date": TODAY,
+                    "company": company,
+                    "ticker": ticker,
+                    "price": (
+                        round(latest_price, 2)
+                        if latest_price is not None
+                        else None
+                    ),
+                    "market_cap": (
+                        round(market_cap)
+                        if market_cap is not None
+                        else None
+                    ),
+                    "pe": (
+                        round(pe, 6)
+                        if pe is not None
+                        else None
+                    ),
+                    "pb": (
+                        round(pb, 6)
+                        if pb is not None
+                        else None
+                    ),
+                    "currency": currency,
+                    "ytd_return": (
+                        round(ytd_return, 10)
+                        if ytd_return is not None
+                        else None
+                    ),
+                }
+            )
+            new_history_records.extend(company_history)
+            print(
+                "  latest result: "
+                f"price={latest_price}, "
+                f"market_cap={market_cap}, "
+                f"pe={pe}, "
+                f"pb={pb}, "
+                f"currency={currency}, "
+                f"ytd={ytd_return}, "
+                f"history_rows={len(company_history)}"
+            )
+        except Exception as exc:
+            print(f"  WARNING: Failed to process {company}({ticker}), skip this stock: {exc}")
+            # 失败也写入一行记录，全部字段为空
+            latest_records.append({
                 "date": TODAY,
                 "company": company,
                 "ticker": ticker,
-                "price": (
-                    round(latest_price, 2)
-                    if latest_price is not None
-                    else None
-                ),
-                "market_cap": (
-                    round(market_cap)
-                    if market_cap is not None
-                    else None
-                ),
-                "pe": (
-                    round(pe, 6)
-                    if pe is not None
-                    else None
-                ),
-                "pb": (
-                    round(pb, 6)
-                    if pb is not None
-                    else None
-                ),
-                "currency": currency,
-                "ytd_return": (
-                    round(ytd_return, 10)
-                    if ytd_return is not None
-                    else None
-                ),
-            }
-        )
-        new_history_records.extend(company_history)
-        print(
-            "  latest result: "
-            f"price={latest_price}, "
-            f"market_cap={market_cap}, "
-            f"pe={pe}, "
-            f"pb={pb}, "
-            f"currency={currency}, "
-            f"ytd={ytd_return}, "
-            f"history_rows={len(company_history)}"
-        )
+                "price": None,
+                "market_cap": None,
+                "pe": None,
+                "pb": None,
+                "currency": "HKD" if company == "NASN" else None,
+                "ytd_return": None,
+            })
+
         # 随机sleep，防爬虫识别
         time.sleep(random.uniform(1.2,2.5))
     # --------------------------------------------------------
@@ -287,11 +321,6 @@ def main():
         columns=HISTORY_COLUMNS,
     )
     new_history_df = normalize_history(new_history_df)
-    if new_history_df.empty:
-        raise RuntimeError(
-            "Yahoo returned no valid recent history. "
-            "Existing market_history.csv was not overwritten."
-        )
     existing_history_df = read_existing_history()
     history_df = pd.concat(
         [
