@@ -25,6 +25,7 @@ STOCKS = {
     "Baolong": "603197.SS",
     "BTL": "603596.SS",
     "AUMOVIO": "AMV0.F",
+    "NASN":"02261.HK",
 }
 
 LATEST_COLUMNS = [
