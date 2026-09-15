@@ -2,7 +2,6 @@ import math
 import time
 import random
 from datetime import datetime
-from dateutil.parser import parse
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import pandas as pd
@@ -86,11 +85,14 @@ def calculate_ytd_return_from_series(full_closes, latest_price, company):
     if latest_price is None or full_closes.empty:
         return None
     start_year = RUN_TIME.year
-    ytd_start = pd.Timestamp(f"{start_year}-01-01", tz=full_closes.index.tz)
+    # 构建当年1月1日，并转为K线时区
+    ytd_start_naive = pd.Timestamp(f"{start_year}-01-01")
+    ytd_start = ytd_start_naive.tz_localize(full_closes.index.tz)
 
     # NASN新股保护：YTD起始不能早于上市日
     if company == "NASN":
-        list_dt = pd.Timestamp(NASN_LIST_DATE, tz=full_closes.index.tz)
+        list_dt_naive = pd.Timestamp(NASN_LIST_DATE)
+        list_dt = list_dt_naive.tz_localize(full_closes.index.tz)
         ytd_start = max(ytd_start, list_dt)
 
     ytd_closes = full_closes[full_closes.index >= ytd_start]
@@ -105,7 +107,8 @@ def build_history_rows_from_series(company, ticker, full_closes, currency):
     """从已下载的1年K线，切片最近1个月数据，不再重复请求"""
     if full_closes.empty:
         return []
-    one_month_start = pd.Timestamp(RUN_TIME, tz=full_closes.index.tz) - pd.Timedelta(days=30)
+    run_tz = pd.Timestamp(RUN_TIME).tz_convert(full_closes.index.tz)
+    one_month_start = run_tz - pd.Timedelta(days=30)
     recent_closes = full_closes[full_closes.index >= one_month_start]
     rows = []
     for timestamp, price in recent_closes.items():
