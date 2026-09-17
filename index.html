@@ -51,6 +51,7 @@ body.briefing-docked main{padding-top:29px}
 .part-note-color{width:18px;height:18px;padding:0;border:0;background:transparent;cursor:pointer}
 .part-note-editor{flex:1;min-height:145px;padding:11px;border:1px dashed rgba(72,39,175,.24);border-radius:11px;color:#302943;background:rgba(255,255,255,.76);outline:none;overflow:auto;font-size:13px;line-height:1.55;white-space:normal}
 .part-note-editor:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(72,39,175,.07);background:#fff}
+.part-note-editor ul{margin:6px 0;padding-left:22px}.part-note-editor li{margin:3px 0;padding-left:2px}.part-note-toolbar button[data-cmd="insertUnorderedList"]{color:var(--red);font-size:15px;font-weight:900}.part-note-toolbar button[data-cmd="insertUnorderedList"]:hover{color:#fff}
 .part-note-editor:empty:before{content:attr(data-placeholder);color:#aaa4b7;pointer-events:none}
 .part-note-foot{padding-top:8px;color:#9a95a7;font-size:8px;text-align:right}
 #capital-market+.part-note{color:var(--ink)}
@@ -101,6 +102,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -126,6 +128,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -151,6 +154,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -176,6 +180,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -201,6 +206,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -226,6 +232,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -250,6 +257,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -274,6 +282,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
@@ -299,6 +308,7 @@ body.briefing-docked main{padding-top:29px}
 <div aria-label="Text formatting" class="part-note-toolbar" role="toolbar">
 <button data-cmd="bold" title="Bold" type="button"><b>B</b></button>
 <button data-cmd="italic" title="Italic" type="button"><i>I</i></button>
+<button data-cmd="insertUnorderedList" title="Bullet List" type="button" aria-label="Bullet list">&#8226;</button>
 <select aria-label="Font size" class="part-note-size" title="Font size">
 <option value="2">Small</option>
 <option selected="" value="3">Normal</option>
